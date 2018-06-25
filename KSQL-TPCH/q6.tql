@@ -1,0 +1,26 @@
+CREATE CQ LineItemFilter
+INSERT INTO LineItemDataStreamFiltered
+select * from LineItemDataStreamAll l
+WHERE l.discount >0.05 and l.discount <0.07 and l.quantity < 24
+;
+
+CREATE JUMPING  WINDOW LineWindow OVER LineItemDataFilterStream6 KEEP WITHIN 5 MINUTE ON LOrderDate;
+;
+
+CREATE TYPE ResultType (
+   Group_key Integer,
+  revenue Double
+);
+CREATE OR REPLACE PROPERTYSET KafkaProps (kafkaversion:'0.8', zk.address:'localhost:2181', bootstrap.brokers:'localhost:9092', partitions:'1');
+create stream LineDiscountStreamGrouped of ResultType
+persist using KafkaProps;
+
+
+CREATE OR REPLACE CQ LineItemDiscount
+INSERT INTO LineDiscountStreamGrouped
+Select
+group_key, SUM(l.extendedPrice*(1- l.discount)) as revenue
+ from LineWindow2Mins l
+Group by group_key
+;
+

@@ -1,0 +1,57 @@
+CREATE APPLICATION Query6All;
+CREATE  SOURCE LineItemReader6ll USING FileReader  (
+  blocksize: 10240,
+  positionbyeof: false,
+  rolloverstyle: 'Default',
+  includesubdirectories: false,
+  adapterName: 'FileReader',
+  --directory: '/home/ubuntu/data/Demos/TPCH/CSV_EXPORT/',
+  directory: '/home/ubuntu/data/Demos/TPCH/CSV_EXPORT/SF10_1',
+  skipbom: true,
+  wildcard: 'lineitem.csv'
+ )
+ PARSE USING DSVParser  (
+  charset: 'UTF-8',
+  handler: 'com.webaction.proc.DSVParser_1_0',
+  linenumber: '-1',
+  nocolumndelimiter: false,
+  trimwhitespace: false,
+  columndelimiter: ',',
+  columndelimittill: '-1',
+  ignoremultiplerecordbegin: 'true',
+  ignorerowdelimiterinquote: false,
+  parserName: 'DSVParser',
+  separator: ':',
+  blockascompleterecord: false,
+  ignoreemptycolumn: false,
+  rowdelimiter: '\r',
+  header: false,
+  headerlineno: 0,
+  quoteset: '\"',
+  trimquote: true
+ )
+OUTPUT TO LineItemData6All ;
+
+CREATE TYPE LineItemTypeAll (
+  LOrderDate DateTime,
+  orderKey Long,
+  discount Double,
+  supplierKey Long,
+extendedPrice Double,
+  quantity Integer,
+  partkey Long
+);
+CREATE OR REPLACE PROPERTYSET KafkaProps1 (kafkaversion:'0.8', zk.address:'localhost:2181', bootstrap.brokers:'localhost:9092', partitions:'1');
+create stream LineItemDataStreamAll of LineItemTypeAll
+persist using KafkaProps;
+CREATE OR REPLACE CQ LineCsvToData6All
+INSERT INTO LineItemDataStreamAll
+SELECT
+TO_DATE(data[15])as LOrderDate,
+TO_LONG(data[1]) as orderKey,
+TO_DOUBLE(data[2]) as discount,
+TO_LONG(data[4]) as supplierKey,
+TO_DOUBLE(data[3]) as  extendedPrice,
+TO_INT(data[5]) as quantity,
+TO_LONG(data[7]) as partsKey
+FROM LineItemData6All l;

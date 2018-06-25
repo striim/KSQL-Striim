@@ -1,0 +1,7 @@
+CREATE STREAM lineitem_raw_10 (shipDate varchar, orderKey bigint, discount Double , extendedPrice Double,  suppKey bigint, quantity bigint, returnflag varchar, partKey bigint, linestatus varchar, tax double , commitdate varchar, recieptdate varchar,shipmode varchar, linenumber bigint,shipinstruct varchar,orderdate varchar, group_key smallint) WITH (kafka_topic='line10', value_format='DELIMITED'); 
+
+CREATE STREAM lineitem_10 AS 
+Select STRINGTOTIMESTAMP(orderdate, 'yyyy-MM-dd HH:mm:ss') , orderkey, discount, suppKey, extendedPrice , quantity, group_key from lineitem_raw_10 where quantity<24 and   discount <0.07 and discount >0.05;
+
+CREATE TABLE line_query6 AS Select  group_key, ,sum(extendedprice * (1-discount)) as revenue from lineitem_10  WINDOW TUMBLING (SIZE 5 MINUTES) GROUP BY group_key;
+

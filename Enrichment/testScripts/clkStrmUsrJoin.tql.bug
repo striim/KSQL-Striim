@@ -1,0 +1,70 @@
+stop application clickStrmApp; 
+undeploy application cliclkStrmApp; 
+drop application clickStrmApp cascade ; 
+
+create application clickStrmApp ; 
+
+--Create Type to map JSON fields. 
+create type usertype(
+ registered_at DateTime,
+ user_id String,
+ city String,
+ level String,
+ last_name String,
+ first_name String,
+ username String
+);
+
+CREATE CACHE user_cache using FileReader (
+  directory: '/home/ubuntu/data/Striim_383',
+  wildcard: 'users4kJSON'
+)
+PARSE USING JSONPARSER(
+  eventype: 'usertype'
+) QUERY (keytomap:'user_id') OF usertype;
+
+load cache user_cache ;
+
+-- Create type to hold clickstream data. 
+create type clickStrmType(
+ remote_user String,
+ request String,
+ referrer String,
+ agent String, 
+ bytes Integer, 
+ ip  String,
+ time  DateTime, 
+ userid Integer,
+ status Integer
+);
+
+CREATE STREAM clickStrm of clickStrmType;
+
+CREATE SOURCE clickStreamSource USING KafkaReader VERSION '0.10.0' (
+ brokerAddress:'localhost:9092',
+ Topic:'clickstream',
+ startOffset:'0'
+)
+PARSE USING JSONParser (
+ eventype:'' 
+)
+OUTPUT TO clickStrm1;
+
+--Load Cache from users JSON.
+
+-- Join clickStrm to users
+
+CREATE CQ customer_clickstreamCQ
+INSERT INTO customer_clickstream
+select c.data.get("userid"),u.first_name,u.last_name,u.level,c.data.get("time"),c.data.get("ip"),c.data.get("request"),c.data.get("status"),c.data.get("agent") 
+from
+clickStrm1 c LEFT JOIN user_cache u
+on c.data.get("userid").toString() = u.user_id.toString() ; 
+
+--
+--CREATE TARGET JoinedData
+--USING SysOut(name:Joined)
+--INPUT FROM customer_clickstream;
+
+End application clickStrmApp;
+

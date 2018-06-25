@@ -1,0 +1,40 @@
+stop application FileReaderJsoneParser;
+undeploy application FileReaderJsonParser; 
+drop application FileReaderJsonParser cascade;
+
+create application FileReaderJsonParser;
+
+-- Create type to hold clickstream data. 
+create type clickStrmType(
+ remote_user String,
+ request String,
+ referrer String,
+ agent String, 
+ bytes String, 
+ ip  String,
+ time String,
+ userid Integer,
+ _time Long,
+ status String
+);
+
+
+CREATE STREAM clickStrm1 of clickStrmType;
+
+CREATE SOURCE filSource using FileReader(
+directory: '/home/ubuntu/data/Striim_383/Striim/testScripts',
+wildcard:'clckStrm1json',
+positionByEOF:false
+)PARSE USING JSONParser (
+ eventType:'admin.clickStrmType'
+-- fieldName:'data'
+)
+OUTPUT TO clickStrm1;
+
+CREATE CQ customer_clickstreamCQ 
+INSERT INTO customer_clickstream
+select * from clickStrm1 ; 
+
+END APPLICATION FileReaderJsonParser ; 
+
+

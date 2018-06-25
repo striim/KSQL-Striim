@@ -1,0 +1,73 @@
+create application clkStrmEvntTbl ; 
+
+--Create Type to map JSON fields.
+create type usertype(
+ user_id Integer,
+ username String,
+ registered_at DateTime,
+ city String,
+ first_name String,
+ last_name String,
+ level String
+);
+
+--1,alison_99,1465434931337,Elwyn,Lalonde,London,Gold
+
+CREATE CACHE users_cache using CSVReader (
+  directory: '/home/ubuntu/data/Striim_383',
+  wildcard: 'users8k.csv',
+  header: No,
+  columndelimiter: ',',
+  trimquote:false
+) QUERY(keytomap:'user_id'
+) OF usertype;
+
+
+-- Create type to hold clickstream data.
+create type clickStrmType(
+ remote_user String,
+ request String,
+ referrer String,
+ agent String,
+ bytes String,
+ ip  String,
+ time String,
+ userid Integer,
+ _time Long,
+ status String
+);
+
+
+CREATE STREAM clickStrm1 of clickStrmType;
+CREATE SOURCE clickStreamSource USING KafkaReader VERSION '0.10.0' (
+ brokerAddress:'localhost:9092',
+ Topic:'clickstream',
+ startOffset:'0'
+)
+PARSE USING JSONParser (
+ eventType:'admin.clickStrmType'
+-- fieldName:'data':q!
+
+
+-- Write to EventTable , in-memory and persistent.
+CREATE OR REPLACE TYPE clkStrmUserTblType
+  (
+  userid String,
+  firstname String,
+  last_name String,
+  level     String,
+  ts String,
+  ip String,
+  request String,
+  status String,
+  agent String
+   ) ;
+
+CREATE EVENTTABLE clkStrmUserTbl using STREAM (
+  NAME: 'customer_clickstream'
+)QUERY(keytomap:'userid',
+       persistPolicy: 'false'
+) OF clkStrmUserTblType ;
+
+END APPlICATION clkStrmEvntTbl ;
+

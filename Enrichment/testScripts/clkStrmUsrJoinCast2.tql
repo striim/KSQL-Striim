@@ -1,0 +1,77 @@
+stop application clickStrmApp; 
+undeploy application clickStrmApp; 
+drop application clickStrmApp cascade ; 
+
+create application clickStrmApp ; 
+
+--Create Type to map JSON fields. 
+create type usertype(
+ user_id Integer,
+ username String,
+ registered_at DateTime,
+ city String,
+ first_name String,
+ last_name String,
+ level String
+);
+
+--1,alison_99,1465434931337,Elwyn,Lalonde,London,Gold
+CREATE CACHE users_cache using CSVReader (
+  directory: '/home/ubuntu/data/Striim_383',
+  wildcard: 'users8k.csv',
+  header: No,
+  columndelimiter: ',',
+  trimquote:false
+) QUERY(keytomap:'user_id'
+) OF usertype;
+
+
+-- Create type to hold clickstream data. 
+create type clickStrmType(
+ remote_user String,
+ request String,
+ referrer String,
+ agent String, 
+ bytes String, 
+ ip  String,
+ time String,
+ userid Integer,
+ _time Long,
+ status String
+);
+
+
+CREATE STREAM clickStrm1 of clickStrmType;
+CREATE SOURCE clickStreamSource USING KafkaReader VERSION '0.10.0' (
+ brokerAddress:'localhost:9092',
+ Topic:'clickstream',
+ startOffset:'0'
+)
+PARSE USING JSONParser (
+ eventType:'admin.clickStrmType'
+-- fieldName:'data'
+)
+OUTPUT TO clickStrm1;
+
+CREATE CQ customer_clickstreamCQ
+INSERT INTO customer_clickstream1
+select c.userid,u.first_name,u.last_name,u.level,c.time,c.ip,c.request,c.status,c.agent 
+from
+clickStrm1 c LEFT JOIN users_cache u
+on c.userid = u.user_id ; 
+--
+---- Write the stream to event table. 
+----Load Cache from users JSON.
+
+create Target writer using KafkaWriter VERSION '0.10.0' (
+        brokerAddress:'localhost:9092',
+        Topic:'StriimclkStrm10'
+)
+format using JSONFormatter (
+        EventsAsArrayOfJsonObjects:false,
+        members:'userid,first_name,last_name,level,time,ip,request,status,agent'
+)
+INPUT FROM customer_clickstream1; 
+
+End application clickStrmApp;
+

@@ -1,0 +1,4 @@
+ClickStream:- 
+./bin/ksql-datagen quickstart=clickstream format=json topic=clickstream maxInterval=10 iterations=2000000
+Users :- 
+ ./bin/ksql-datagen  quickstart=clickstream_users format=json topic=clickstream_users maxInterval=10 iterations=4000
